@@ -11,7 +11,6 @@ from PhysicsTools.NanoAODTools.postprocessing.tools import *
 from PhysicsTools.NanoAODTools.postprocessing.modules.jme.JetSysColl import JetSysColl, JetSysObj
 
 import pickle
-from optparse import OptionParser
 import copy
 
 def add_dict_to_tree(tree, d, label):
@@ -23,49 +22,13 @@ def add_dict_to_tree(tree, d, label):
 
 
 
-if __name__ == "__main__":
-    
-    parser = OptionParser()
 
-    parser.add_option('-i', '--inputfile', metavar='F', type='string', action='store',
-                    default   =   'test.root',
-                    dest      =   'inputfile',
-                    help      =   'input dataset')
+def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1):
 
-    parser.add_option('-o', '--outputfile', metavar='F', type='string', action='store',
-                    default   =   'out.root',
-                    dest      =   'outputfile',
-                    help      =   'input dataset')
-
-    parser.add_option('-s', '--set', metavar='F', type='string', action='store',
-                    default   =   'data',
-                    dest      =   'set',
-                    help      =   'dataset (ie data,ttbar etc)')
-
-    parser.add_option('-g', '--grid', metavar='F', type='string', action='store',
-                    default   =   'off',
-                    dest      =   'grid',
-                    help      =   'running on grid off or on')
-    parser.add_option('-m', '--modulesuffix', metavar='F', type='string', action='store',
-                    default   =   'none',
-                    dest      =   'modulesuffix',
-                    help      =   'ex. PtSmearUp')
-    parser.add_option('-n', '--num', metavar='F', type='string', action='store',
-                    default   =   'all',
-                    dest      =   'num',
-                    help      =   'job number')
-    parser.add_option('-j', '--jobs', metavar='F', type='int', action='store',
-                    default   =   1,
-                    dest      =   'jobs',
-                    help      =   'number of jobs')
-    parser.add_option('-S', '--split', metavar='F', type='string', action='store',
-                    default   =   'file',
-                    dest      =   'split',
-                    help      =   'split by event of file') #EVENT SPLITTING DOESN'T CURRENTLY WORK
-
-    (options, args) = parser.parse_args()
-
-    fin = TFile.Open(options.inputfile)
+    fin = TFile.Open(inputFile)
+    if(not fin): #check for null pointer
+        print("Unable to open file %s, exting \n" % inputFile)
+        return 1
 
     tree = fin.Get("Events")
     tree = InputTree(tree)
@@ -75,14 +38,13 @@ if __name__ == "__main__":
     treeEntries = eventBranch.GetEntries()
 
     # Design the splitting if necessary
-    jobs = options.jobs
-    if jobs != 1:
-        evInJob = int(treeEntries/jobs)
+    if nJobs != 1:
+        evInJob = int(treeEntries/nJobs)
         
-        lowBinEdge = evInJob*(num-1)
-        highBinEdge = evInJob*num
+        lowBinEdge = evInJob*(jobNum-1)
+        highBinEdge = evInJob*jobNum
 
-        if num == jobs:
+        if jobNum == nJobs:
             highBinEdge = treeEntries
     else:
         lowBinEdge = 0
@@ -107,7 +69,7 @@ if __name__ == "__main__":
             'NEls':array('i', [0])
             }
 
-    fout = TFile(options.outputfile, "recreate")
+    fout = TFile(outputFile, "recreate")
 
     tout = TTree("tout", "tout")
     tout = add_dict_to_tree(tout, tout_floats, "/F")
@@ -212,6 +174,7 @@ if __name__ == "__main__":
     
     fout.Write()
     fout.Close()
+    return 0
 
 
 
