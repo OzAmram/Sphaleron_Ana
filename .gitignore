@@ -1,2 +1,4 @@
 *.root
 *.un~
+*.pyc
+__init__.py

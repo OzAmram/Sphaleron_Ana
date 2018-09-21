@@ -7,7 +7,6 @@ else
 ls -lR .
 echo "ENV..................................."
 env 
-eval `scramv1 runtime -sh`
 echo "VOMS"
 voms-proxy-info -all
 echo "CMSSW BASE, python path, pwd"

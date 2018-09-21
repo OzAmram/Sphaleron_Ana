@@ -14,7 +14,7 @@ import pickle
 import copy
 
 def add_dict_to_tree(tree, d, label):
-#Add dictionary as branches to ttree
+    #Add dictionary as branches to ttree
     for key in d.keys():
         tree.Branch(key, d[key], key+label)
     return tree
@@ -40,7 +40,7 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
     # Design the splitting if necessary
     if nJobs != 1:
         evInJob = int(treeEntries/nJobs)
-        
+
         lowBinEdge = evInJob*(jobNum-1)
         highBinEdge = evInJob*jobNum
 
@@ -131,7 +131,7 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
                 Event_vector += mu.p4()
 
         for el in ElectronsCol:
-        #cut based id: 0 = fail, 1 = veto, 2 = loose, 3 = medium , 4 = tight
+            #cut based id: 0 = fail, 1 = veto, 2 = loose, 3 = medium , 4 = tight
         #want medium id
             if(el.cutBased >= 3 and abs(el.eta) < 2.5 and el.pt > min_pt):
                 ST += el.pt
@@ -140,12 +140,12 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
                 Event_vector += el.p4()
 
         for phot in PhotonsCol:
-        #cut based id: 0 = fail, 1 = veto, 2 = loose, 3 = medium , 4 = tight
+            #cut based id: 0 = fail, 1 = veto, 2 = loose, 3 = medium , 4 = tight
             #want medium id
             if( phot.cutBased >=3 and abs(phot.eta) < 2.5 and phot.pt > min_pt):
                 ST += phot.pt
                 Event_vector += phot.p4()
-    
+
         Mass = Event_vector.M()
 
         Float_dict= {
@@ -169,13 +169,13 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
 
         for key in Float_dict.keys():
             tout_floats[key][0] = Float_dict[key]
-    
+
         tout.Fill()
-    
+
     fout.Write()
     fout.Close()
-    return 0
+    return count
 
 
 
-    
+
