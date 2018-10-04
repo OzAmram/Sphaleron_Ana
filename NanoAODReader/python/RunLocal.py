@@ -20,6 +20,11 @@ if __name__ == "__main__":
                     dest      =   'set',
                     help      =   'dataset (ie data,ttbar etc)')
 
+    parser.add_option('-c', '--cut', metavar='F', type='string', action='store',
+                    default   =   '',
+                    dest      =   'cut',
+                    help      =   'preselection cut applied to sample (eg Jet_pt[0] > 200)')
+
     parser.add_option('-g', '--grid', metavar='F', type='string', action='store',
                     default   =   'off',
                     dest      =   'grid',
@@ -43,4 +48,4 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
 
-    NanoReader(inputFile = options.inputfile, outputFile = options.outputfile, nJobs = options.jobs, jobNum = options.num)
+    NanoReader(inputFileName = options.inputfile, outputFileName = options.outputfile, cut = options.cut)

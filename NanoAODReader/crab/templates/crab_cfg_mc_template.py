@@ -9,9 +9,7 @@ config.section_("JobType")
 config.JobType.pluginName = 'Analysis'
 config.JobType.psetName = 'PSet.py'
 config.JobType.scriptExe = 'crab_script.sh'
-config.JobType.inputFiles = ['../NanoReader.py', 'crab_script.py'] #hadd nano will not be needed once nano tools are in cmssw
-config.JobType.disableAutomaticOutputCollection = True
-config.JobType.outputFiles = ["NanoOut.root"]
+config.JobType.inputFiles = ['../python/NanoReader.py', 'crab_script.py', 'haddnano.py'] #hadd nano will not be needed once nano tools are in cmssw
 config.JobType.sendPythonFolder	 = True
 config.section_("Data")
 config.Data.inputDataset = 'TEMPINPUT'

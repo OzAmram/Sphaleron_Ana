@@ -3,7 +3,7 @@
 import os
 from PhysicsTools.NanoAODTools.postprocessing.framework.crabhelper import inputFiles,runsAndLumis
 from PhysicsTools.NanoAODTools.postprocessing.framework.jobreport import JobReport
-from NanoReader import * 
+from Sphaleron_Ana.NanoAODReader.NanoReader import * 
 
 nFiles = 0
 outFilesList = []
@@ -12,11 +12,12 @@ for f in inputFiles():
     nFiles+=1
     outStr = "out" + str(nFiles)
     outFilesList.append(outStr)
-    nEvents = NanoReader(inputFile = f, outputFile=outStr)
+    nEvents = NanoReader(inputFileName = f, outputFileName=outStr, nJobs=1, jobNum=1, json=runsAndLumis())
+    print("events are %i \n" %nEvents)
     jobReport.addInputFile(f,nEvents)
 
 #hadd outputs
-hadd_cmnd = "hadd NanoOut.root "
+hadd_cmnd = "./haddnano.py tree.root "
 for f in outFilesList:
     hadd_cmnd += f + " "
 
@@ -27,7 +28,10 @@ os.system("ls")
 
 
 
-jobReport.addOutputFile("NanoOut.root")
+jobReport.addOutputFile("tree.root")
 jobReport.save()
+
+print "DONE"
+os.system("ls -lR")
 
 

@@ -1,0 +1,7 @@
+<use name="roottmva"/>
+<use name="hepmc"/>
+<use name="PhysicsTools/NanoAODTools"/>
+<use name="Sphaleron_Ana/NanoAODReader"/>
+<export>
+  <lib   name="1"/>
+</export>

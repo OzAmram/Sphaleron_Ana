@@ -9,6 +9,9 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import *
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 from PhysicsTools.NanoAODTools.postprocessing.tools import *
 from PhysicsTools.NanoAODTools.postprocessing.modules.jme.JetSysColl import JetSysColl, JetSysObj
+from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import eventLoop
+from PhysicsTools.NanoAODTools.postprocessing.framework.preskimming import preSkim
+from Sphaleron_Ana.NanoAODReader.CrabOutput import *
 
 import pickle
 import copy
@@ -23,34 +26,45 @@ def add_dict_to_tree(tree, d, label):
 
 
 
-def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1):
+def NanoReader(inputFileName="in.root", outputFileName="out.root", cut=None, nJobs = 1, jobNum = 1, json = None):
 
-    fin = TFile.Open(inputFile)
-    if(not fin): #check for null pointer
-        print("Unable to open file %s, exting \n" % inputFile)
+    inputFile = TFile.Open(inputFileName)
+    if(not inputFile): #check for null pointer
+        print("Unable to open file %s, exting \n" % inputFileName)
         return 1
 
-    tree = fin.Get("Events")
-    tree = InputTree(tree)
+    #get input tree
+    inTree = inputFile.Get("Events")
+    # pre-skimming
+    elist,jsonFilter = preSkim(inTree, json, cut)
+
+    #number of events to be processed 
+    nTotal = elist.GetN() if elist else inTree.GetEntries()
+    
+    print 'Pre-select %d entries out of %s '%(nTotal,inTree.GetEntries())
+
+
+    inTree= InputTree(inTree, elist) 
+
 
     # Grab event tree from nanoAOD
-    eventBranch = tree.GetBranch('event')
+    eventBranch = inTree.GetBranch('event')
     treeEntries = eventBranch.GetEntries()
 
     # Design the splitting if necessary
-    if nJobs != 1:
-        evInJob = int(treeEntries/nJobs)
+    #if nJobs != 1:
+    #    evInJob = int(treeEntries/nJobs)
 
-        lowBinEdge = evInJob*(jobNum-1)
-        highBinEdge = evInJob*jobNum
+    #    lowBinEdge = evInJob*(jobNum-1)
+    #    highBinEdge = evInJob*jobNum
 
-        if jobNum == nJobs:
-            highBinEdge = treeEntries
-    else:
-        lowBinEdge = 0
-        highBinEdge = treeEntries
+    #    if jobNum == nJobs:
+    #        highBinEdge = treeEntries
+    #else:
+    #    lowBinEdge = 0
+    #    highBinEdge = treeEntries
 
-    print "Range of events: (" + str(lowBinEdge) + ", " + str(highBinEdge) + ")"
+    #print "Range of events: (" + str(lowBinEdge) + ", " + str(highBinEdge) + ")"
 
     tout_floats= {
             'ST':array('f', [0.]),
@@ -69,11 +83,13 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
             'NEls':array('i', [0])
             }
 
-    fout = TFile(outputFile, "recreate")
+    outputFile = TFile(outputFileName, "recreate")
 
-    tout = TTree("tout", "tout")
-    tout = add_dict_to_tree(tout, tout_floats, "/F")
-    tout = add_dict_to_tree(tout, tout_ints, "/I")
+    outTree = TTree("Events", "Events")
+    outTree = add_dict_to_tree(outTree, tout_floats, "/F")
+    outTree = add_dict_to_tree(outTree, tout_ints, "/I")
+
+    crabOutput= CrabOutput(inputFile, inTree, outputFile, outTree, provenance=True, jsonFilter = jsonFilter)
 
     min_pt = 70.
     count = 0
@@ -81,16 +97,15 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
 
 
 # -------- Begin Loop-------------------------------------
-    for entry in range(lowBinEdge,highBinEdge):
+    entries = inTree.entries
+    for entry in xrange(entries):
 
         count   =   count + 1
         if count % 10000 == 0 :
-            print  '--------- Processing Event ' + str(count) +'   -- percent complete ' + str(100*count/(highBinEdge-lowBinEdge)) + '% -- '
+            print  '--------- Processing Event ' + str(count) +'   -- percent complete ' + str(100*count/nTotal) + '% -- '
 
         # Grab the event
-        tree.GetEntry(entry)
-        event = Event(tree, entry)
-        #event = tree.event
+        event = Event(inTree, entry)
 
 
 
@@ -106,45 +121,106 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
         Event_vector = ROOT.TLorentzVector()
 
 
-        trigger = (int) (tree.HLT_PFHT900 or tree.HLT_PFHT800)
-        weight = tree.genWeight
+        trigger = (int) (inTree.readBranch('HLT_PFHT900') or inTree.readBranch('HLT_PFHT800'))
+        Weight = inTree.readBranch('genWeight')
 
         AK4JetsCol = Collection(event, "Jet")
         MuonsCol = Collection(event, "Muon")
         ElectronsCol = Collection(event, "Electron")
         PhotonsCol = Collection(event, "Photon")
-        MET = tree.MET_pt
+        MET = inTree.readBranch('MET_pt')
 
+        jets= set()
+        mus = set()
+        els = set()
+        phots = set()
+        R_min = 0.3
         for jet in AK4JetsCol:
             #jetId : bit1 = loose, bit2 = tight, bit3 = tightLepVeto
             #want loose id
             if((jet.jetId % 2 == 1) and jet.pt > min_pt):
-                ST += jet.pt
-                HT += jet.pt
-                NJets += 1
-                Event_vector += jet.p4()
+                jets.add(jet.p4())
         for mu in MuonsCol:
             if(mu.tightId and abs(mu.eta) < 2.4 and mu.pt > min_pt):
-                ST += mu.pt
-                Mu_Pt += mu.pt
-                NMus += 1
-                Event_vector += mu.p4()
+                mus.add(mu.p4())
 
         for el in ElectronsCol:
             #cut based id: 0 = fail, 1 = veto, 2 = loose, 3 = medium , 4 = tight
         #want medium id
             if(el.cutBased >= 3 and abs(el.eta) < 2.5 and el.pt > min_pt):
-                ST += el.pt
-                El_Pt += el.pt
-                NEls += 1
-                Event_vector += el.p4()
+                els.add(el.p4())
 
         for phot in PhotonsCol:
             #cut based id: 0 = fail, 1 = veto, 2 = loose, 3 = medium , 4 = tight
             #want medium id
             if( phot.cutBased >=3 and abs(phot.eta) < 2.5 and phot.pt > min_pt):
-                ST += phot.pt
-                Event_vector += phot.p4()
+                phots.add(phot.p4())
+
+        jets_to_remove = set()
+        els_to_remove = set()
+        phots_to_remove = set()
+
+        # Cleanup overlapping jets
+        for jet in jets:
+            for el in els:
+                if(jet.DeltaR(el) < R_min):
+                    if((el.Et()/jet.Et()) > 0.7):
+                        jets_to_remove.add(jet)
+                    else:
+                        els_to_remove.add(el)
+            for mu in mus:
+                if(jet.DeltaR(mu) < R_min):
+                    if((mu.Et()/jet.Et()) > 0.8):
+                        jets_to_remove.add(jet)
+            for phot in phots:
+                if(jet.DeltaR(phot) < R_min):
+                    if((phot.Et()/jet.Et()) > 0.5):
+                        jets_to_remove.add(jet)
+                    else:
+                        phots_to_remove.add(phot)
+             
+        #cleanup overlapping photons and leptons
+        for phot in phots:
+            for el in els:
+                if(phot.DeltaR(el) < R_min):
+                    phots_to_remove.add(phot)
+            for mu in mus:
+                if(phot.DeltaR(mu) < R_min):
+                    phots_to_remove.add(phot)
+        for el in els:
+            for mu in mus:
+                if(el.DeltaR(mu) < R_min):
+                    els_to_remove.add(el)
+        
+        #do the removal
+        for jet in jets_to_remove:
+            jets.remove(jet)
+        for el in els_to_remove:
+            els.remove(el)
+        for phot in phots_to_remove:
+            phots.remove(phot)
+
+
+        for jet in jets:
+            ST += jet.Et()
+            HT += jet.Et()
+            NJets += 1
+            Event_vector += jet
+        for mu in mus:
+            ST += mu.Et()
+            Mu_Pt += mu.Et()
+            NMus += 1
+            Event_vector += mu
+
+        for el in els:
+            ST += el.Et()
+            El_Pt += el.Et()
+            NEls += 1
+            Event_vector += el
+
+        for phot in phots:
+            ST += phot.Et()
+            Event_vector += phot
 
         Mass = Event_vector.M()
 
@@ -154,7 +230,8 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
                 "HT":HT,
                 "Mu_Pt":Mu_Pt,
                 "El_Pt":El_Pt,
-                "Mass":Mass
+                "Mass":Mass,
+                "Weight":Weight
                 }
 
 
@@ -170,10 +247,9 @@ def NanoReader(inputFile="in.root", outputFile="out.root", nJobs = 1, jobNum = 1
         for key in Float_dict.keys():
             tout_floats[key][0] = Float_dict[key]
 
-        tout.Fill()
+        outTree.Fill()
 
-    fout.Write()
-    fout.Close()
+    crabOutput.Write()
     return count
 
 
